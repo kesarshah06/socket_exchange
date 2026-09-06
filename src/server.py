@@ -65,17 +65,17 @@ def start_server(host, port):
                 sockets.append(client_socket)
                 clients[client_socket] = ClientState()
                 print("Client connected: ", addr)
+                continue
 
-            else:
-                try:
-                    data = sock.recv(2048)
-                except BlockingIOError:
-                    print("ERROR BlockingIOError")
-                    continue
-                except OSError:
-                    print("ERROR OSError:")
-                    close_client(sock, sockets, clients)
-                    continue
+            try:
+                data = sock.recv(2048)
+            except BlockingIOError:
+                print("ERROR BlockingIOError")
+                continue
+            except OSError:
+                print("ERROR OSError:")
+                close_client(sock, sockets, clients)
+                continue
             if not data:
                 print("Client disconnected")
                 close_client(sock, sockets, clients)
