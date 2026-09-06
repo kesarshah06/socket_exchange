@@ -3,23 +3,23 @@ import sys
 
 from common import LineBuffer, send_line, valid_instrument, valid_int
 
-def start_trader(host, port, username):
+def start_market_data(host, port, instrument):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((host, port))
     print("Connected to Exchange Server at", host, ":", port)
-    send_line(sock, "Login " + username)
+    send_line(sock, "SUBSCRIBE " + instrument)
     buffer = LineBuffer()
     try:
         while True:
-            command = input("> ")
-            send_line(sock, command)
             data = sock.recv(2048)
             if not data:
                 print("Server disconnected")
                 break
             messages = buffer.add(data)
             for message in messages:
-                print("SERVER:", message)
+                print("MARKET DATA:", message)
+            command = input("> ")
+            send_line(sock, command)
             if(command.lower() == "exit"):
                 break
     except KeyboardInterrupt:
@@ -30,9 +30,12 @@ def start_trader(host, port, username):
 
 if __name__ == "__main__":
     if(len(sys.argv) != 4):
-        print("Usage: python trader.py <host> <port> <username>")
+        print("Usage: python market_data.py <host> <port> <instrument>")
         sys.exit(1)
     host = sys.argv[1]
     port = int(sys.argv[2])
-    username = sys.argv[3]
-    start_trader(host, port, username)
+    instrument = sys.argv[3]
+    if not valid_instrument(instrument):
+        print("Invalid instrument. Valid instruments are:", ", ".join(sorted(valid_instrument.__globals__['INSTRUMENTS'])))
+        sys.exit(1)
+    start_market_data(host, port, instrument)
