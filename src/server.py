@@ -291,7 +291,7 @@ def handle_sell(sock, parts, clients, current_order_id, order_book, order_by_id)
 
     return current_order_id
 
-def match_orders(order, clients, order_book, order_by_id):
+def match_orders(order, order_book, clients, order_by_id):
     instrument = order.instrument
     side = order.side
     oppo = "SELL" if side == "BUY" else "BUY"
