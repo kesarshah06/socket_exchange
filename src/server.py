@@ -69,12 +69,8 @@ def start_server(host, port):
 
             try:
                 data = sock.recv(2048)
-            except BlockingIOError:
-                print("ERROR BlockingIOError")
-                continue
-            except OSError:
-                print("ERROR OSError: while receiving data from client")
-                close_client(sock, sockets, clients)
+            except BlockingIOError or OSError:
+                print("ERROR BlockingIOError or OSError: while receiving data from client")
                 continue
             if not data:
                 print("Client disconnected")
@@ -101,12 +97,8 @@ def start_server(host, port):
             try:
                 sent = sock.send(client.output_buffer)
                 del client.output_buffer[:sent]
-            except BlockingIOError:
-                print("ERROR BlockingIOError")
-                continue
-            except OSError:
-                print("ERROR OSError: while sending data to client")
-                close_client(sock, sockets, clients)
+            except BlockingIOError or OSError:
+                print("ERROR BlockingIOError or OSError: while sending data to client")
                 continue
 
 def close_client(sock, sockets, clients):
