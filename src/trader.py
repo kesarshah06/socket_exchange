@@ -27,7 +27,7 @@ def start_trader(host, port, username):
 
                 messages = buffer.add(data)
                 for message in messages:
-                    print("SERVER:", message)
+                    print("SERVER", message)
             if sys.stdin in readable:
                 try:
                     command = input("> ")
