@@ -73,7 +73,7 @@ def start_server(host, port):
                 print("ERROR BlockingIOError")
                 continue
             except OSError:
-                print("ERROR OSError:")
+                print("ERROR OSError: while receiving data from client")
                 close_client(sock, sockets, clients)
                 continue
             if not data:
@@ -105,7 +105,7 @@ def start_server(host, port):
                 print("ERROR BlockingIOError")
                 continue
             except OSError:
-                print("ERROR OSError:")
+                print("ERROR OSError: while sending data to client")
                 close_client(sock, sockets, clients)
                 continue
 
@@ -117,7 +117,7 @@ def close_client(sock, sockets, clients):
     try:
         sock.close()
     except OSError:
-        print("ERROR OSError: while closing socket")
+        print("ERROR OSError: while closing socket while closing client connection")
         pass
 
 def queue_message(sock, message, clients):
@@ -381,7 +381,7 @@ def handle_QUIT(sock, sockets, clients):
     try:
         sock.close()
     except OSError:
-        print("ERROR OSError: while closing socket")
+        print("ERROR OSError: while closing socket during QUIT")
 
 if __name__ == "__main__":
     if(len(sys.argv) != 3):
