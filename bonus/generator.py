@@ -3,6 +3,7 @@ import sys
 import time
 
 
+#........................ creates multiple connections to the exchange server to test  .........................
 def create_connections(host, port, num):
     connections = []
 
@@ -13,11 +14,10 @@ def create_connections(host, port, num):
         for i in range(num):
             s = None
             retries = 0
-            # Alternate between IPv4 and IPv6 to double the ephemeral port limit
             target_host = host if (i % 2 == 0) else "::1"
-            af_type = socket.AF_INET if (i % 2 == 0) else socket.AF_INET6
+            af_type = socket.AF_INET if (i % 2 == 0) else socket.AF_INET6                    # Alternate between IPv4 and IPv6 to double the ephemeral port limit
             
-            while retries < 5:
+            while retries < 5:                                                               # when the connection fails, it retries up to 5 times with a short delay between attempts
                 try:
                     s = socket.socket(af_type, socket.SOCK_STREAM)
                     s.connect((target_host, port))
@@ -37,7 +37,7 @@ def create_connections(host, port, num):
                 print(f"Error: Max retries reached for connection #{i + 1}")
                 break
 
-            if (i + 1) % 1000 == 0:
+            if (i + 1) % 1000 == 0:                                                          # Print progress every 1000 connections
                 print(f"Created {i + 1} connections")
 
         print()
@@ -45,7 +45,7 @@ def create_connections(host, port, num):
         print("Connections are now idle.")
         print("Press Ctrl-C to close them.")
 
-        while True:
+        while True:                                                                          # Keep the connections open until interrupted
             time.sleep(1)
 
     except KeyboardInterrupt:
@@ -62,6 +62,7 @@ def create_connections(host, port, num):
         print("Connections closed.")
 
 
+#........................ creates multiple connections to the exchange server to test  .........................
 if __name__ == "__main__":
     if len(sys.argv) != 4:
         print("Usage: python generator.py <host> <port> <num_connections>")
