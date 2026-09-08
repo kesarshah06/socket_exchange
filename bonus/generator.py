@@ -12,18 +12,25 @@ def create_connections(host, port, num):
     try:
         for i in range(num):
             s = None
-
-            try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.connect((host, port))
-                connections.append(s)
-
-            except OSError as e:
-                print(f"Error creating connection #{i + 1}: {e}")
-
-                if s is not None:
-                    s.close()
-
+            retries = 0
+            while retries < 5:
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.connect((host, port))
+                    connections.append(s)
+                    break
+                except OSError as e:
+                    if s is not None:
+                        s.close()
+                    if e.errno in (54, 61, 104):  # Connection reset or refused (backlog full)
+                        retries += 1
+                        time.sleep(0.05)
+                        continue
+                    else:
+                        print(f"Error creating connection #{i + 1}: {e}")
+                        break
+            else:
+                print(f"Error: Max retries reached for connection #{i + 1}")
                 break
 
             if (i + 1) % 1000 == 0:
