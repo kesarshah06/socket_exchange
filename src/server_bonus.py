@@ -77,19 +77,6 @@ def start_server(host, port):
 
     print("Exchange Server listening on", host, "and ::1 :", port)
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((host, port))
-    server_socket.listen(10000)                                                                 # sets the maximum number of queued connections to 10000
-    server_socket.setblocking(False)
-    print("Exchange Server listening on", host, ":", port)
-
-    kq = select.kqueue()
-    server_ev = select.kevent(server_socket.fileno(), filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)     # registers the server socket with the kqueue to monitor for read events (incoming connections)
-    kq.control([server_ev], 0, 0)
-
-    clients = {}
-    fd_to_socket = {server_socket.fileno(): server_socket}                                      # maps file descriptors to their corresponding socket object  allowing for easy lookup 
 
 
     current_order_id = 0
