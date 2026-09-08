@@ -58,7 +58,7 @@ def start_server(host, port):
             if sock is server_socket:
 
                 try:
-                    client_socket, addr = server_socket.accept()                  # accepts incoming connection from a client and returns a new socket object and the address of the client
+                    client_socket, addr = server_socket.accept()
 
                 except BlockingIOError:
                     print("ERROR BlockingIOError")
@@ -66,8 +66,8 @@ def start_server(host, port):
 
                 client_socket.setblocking(False)
                 sockets.append(client_socket)
-                clients[client_socket] = ClientState()                            # initializes a new ClientState object for the connected client and adds it to the clients dictionary
-                print("Client connected: ", addr)      
+                clients[client_socket] = ClientState()
+                print("Client connected: ", addr)
                 continue
 
             try:
