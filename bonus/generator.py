@@ -3,22 +3,20 @@ import sys
 import time
 
 
-def create_connections(host, base_port, num):
+def create_connections(host, port, num):
     connections = []
-    ports = [base_port, base_port + 1]
 
-    print(f"Creating {num} connections to {host}:{base_port} and {base_port+1}...")
+    print(f"Creating {num} connections to {host}:{port}...")
     print()
 
     try:
         for i in range(num):
             s = None
             retries = 0
-            target_port = ports[i % 2]
             while retries < 5:
                 try:
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    s.connect((host, target_port))
+                    s.connect((host, port))
                     connections.append(s)
                     break
                 except OSError as e:

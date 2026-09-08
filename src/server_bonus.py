@@ -36,26 +36,21 @@ class Order:
         self.quantity = quantity
         self.price = price
 
-def start_server(host, base_port):
+def start_server(host, port):
     global kq
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((host, port))
+    server_socket.listen(10000)
+    server_socket.setblocking(False)
+    print("Exchange Server listening on", host, ":", port)
+
     kq = select.kqueue()
+    server_ev = select.kevent(server_socket.fileno(), filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)
+    kq.control([server_ev], 0, 0)
+
     clients = {}
-    fd_to_socket = {}
-    
-    server_sockets = []
-    for port in [base_port, base_port + 1]:
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((host, port))
-        server_socket.listen(10000)
-        server_socket.setblocking(False)
-        print("Exchange Server listening on", host, ":", port)
-        
-        server_ev = select.kevent(server_socket.fileno(), filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)
-        kq.control([server_ev], 0, 0)
-        
-        server_sockets.append(server_socket)
-        fd_to_socket[server_socket.fileno()] = server_socket
+    fd_to_socket = {server_socket.fileno(): server_socket}
 
     current_order_id = 0
 
@@ -83,10 +78,10 @@ def start_server(host, base_port):
                 continue
 
             if event.filter == select.KQ_FILTER_READ:
-                if sock in server_sockets:
+                if sock is server_socket:
                     while True:
                         try:
-                            client_socket, addr = sock.accept()
+                            client_socket, addr = server_socket.accept()
                             client_socket.setblocking(False)
                             cfd = client_socket.fileno()
                             fd_to_socket[cfd] = client_socket
