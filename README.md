@@ -18,7 +18,6 @@ The main server uses a single-threaded I/O multiplexing approach with `select()`
 * `src/market_data.py` - The Market-Data Client application.
 * `src/common.py` - Shared utilities, protocol constants, and the `LineBuffer` implementation for TCP message framing.
 * `src/experiment.py` - The automated script used to conduct the 8 networking experiments.
-* `sanity_check/sanity_check.py` - The script used to verify protocol and implementation correctness.
 * `src/server_bonus.py` - Scalable server utilizing `kqueue()` and dual IP binding for the 70,000 connection bonus.
 * `bonus/generator.py` - Bulk client generator script used to spawn the 70,000 connections.
 
