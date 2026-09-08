@@ -3,6 +3,17 @@ import select
 import sys
 
 from common import LineBuffer, encode_line, send_line, valid_instrument, valid_int, valid_order_id
+import resource
+
+def maximize_fd_limit():
+    try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+        print(f"Maximized file descriptor limit to: {hard}")
+    except Exception as e:
+        print(f"Warning: Could not automatically increase file descriptor limit: {e}")
+
+maximize_fd_limit()
 
 kq = None
 
