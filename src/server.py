@@ -53,18 +53,22 @@ def start_server(host, port):
 
         for sock in readable:
             if sock is server_socket:
+                while True:
+                    try:
+                        client_socket, addr = server_socket.accept()
 
-                try:
-                    client_socket, addr = server_socket.accept()
+                    except BlockingIOError:
+                        break
 
-                except BlockingIOError:
-                    print("ERROR BlockingIOError")
-                    continue
+                    except OSError as error:
+                        print("ERROR accepting client:", error)
+                        break
 
-                client_socket.setblocking(False)
-                sockets.append(client_socket)
-                clients[client_socket] = ClientState()
-                print("Client connected: ", addr)
+                    client_socket.setblocking(False)
+                    sockets.append(client_socket)
+                    clients[client_socket] = ClientState()
+                    print("Client connected:", addr)
+
                 continue
 
             try:

@@ -4,28 +4,40 @@ import time
 
 def create_connections(host, port, num):
     connections = []
+
     print(f"Creating {num} connections to {host}:{port}...")
     print()
+
     try:
-        for _ in range(num):
+        for i in range(num):
+            s = None
+
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.connect((host, port))
                 connections.append(s)
-            except Exception as e:
-                print(f"Error creating connection: {e}")
+
+            except OSError as e:
+                print(f"Error creating connection #{i + 1}: {e}")
+                if s is not None:
+                    s.close()
                 break
-            if(_%1000 == 999):
-                print(f"Created {_+1} connections")
+
+            if (i + 1) % 1000 == 0:
+                print(f"Created {i + 1} connections")
+
         print()
-        print("Established connections: ", len(connections))
+        print("Established connections:", len(connections))
         print("Connections are now idle.")
         print("Press Ctrl-C to close them.")
+
         while True:
             time.sleep(1)
+
     except KeyboardInterrupt:
         print()
         print("Closing connections...")
+
     finally:
         for s in connections:
             try:
@@ -47,4 +59,3 @@ if __name__ == "__main__":
         print("Number of connections must be a positive integer.")
         sys.exit(1)
     create_connections(host, port, num)
-    
