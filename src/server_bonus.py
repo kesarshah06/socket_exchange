@@ -143,10 +143,10 @@ def start_server(host, port):
                         close_client(sock, fd_to_socket, clients)
 
             if event.filter == select.KQ_FILTER_READ:                                            # checks if the event is a read event ie data has to be read or a new connection to accept
-                if sock is server_socket:
+                if sock is server_sockets:
                     while True:
                         try:
-                            client_socket, addr = server_socket.accept()                         # gets the new client socket and its address, sets it to non-blocking mode and registers it with the kqueue for read events
+                            client_socket, addr = server_sockets.accept()                         # gets the new client socket and its address, sets it to non-blocking mode and registers it with the kqueue for read events
 
                             client_socket.setblocking(False)
                             cfd = client_socket.fileno()
