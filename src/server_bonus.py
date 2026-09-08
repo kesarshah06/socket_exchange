@@ -42,7 +42,6 @@ class Order:
 #........................... starts exchange server that handles multiple clients and processes their commands ...........................
 def start_server(host, port):
     global kq
-<<<<<<< Updated upstream
     kq = select.kqueue()
     clients = {}
     fd_to_socket = {}
@@ -77,7 +76,7 @@ def start_server(host, port):
         print("Note: Could not bind IPv6:", e)
 
     print("Exchange Server listening on", host, "and ::1 :", port)
-=======
+
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((host, port))
@@ -91,7 +90,7 @@ def start_server(host, port):
 
     clients = {}
     fd_to_socket = {server_socket.fileno(): server_socket}                                      # maps file descriptors to their corresponding socket object  allowing for easy lookup 
->>>>>>> Stashed changes
+
 
     current_order_id = 0
 
@@ -118,19 +117,19 @@ def start_server(host, port):
                 close_client(sock, fd_to_socket, clients)
                 continue
 
-<<<<<<< Updated upstream
+
             if event.filter == select.KQ_FILTER_READ:
                 if sock in server_sockets:
                     while True:
                         try:
                             client_socket, addr = sock.accept()
-=======
+
             if event.filter == select.KQ_FILTER_READ:                                            # checks if the event is a read event ie data has to be read or a new connection to accept
                 if sock is server_socket:
                     while True:
                         try:
                             client_socket, addr = server_socket.accept()                         # gets the new client socket and its address, sets it to non-blocking mode and registers it with the kqueue for read events
->>>>>>> Stashed changes
+
                             client_socket.setblocking(False)
                             cfd = client_socket.fileno()
                             fd_to_socket[cfd] = client_socket
