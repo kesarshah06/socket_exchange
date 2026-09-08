@@ -123,6 +123,37 @@ def start_server(host, port):
                     while True:
                         try:
                             client_socket, addr = sock.accept()
+                        except BlockingIOError:
+                            break
+                        except OSError:
+                            break
+                        client_socket.setblocking(False)
+                        cfd = client_socket.fileno()
+                        fd_to_socket[cfd] = client_socket
+                        clients[client_socket] = ClientState()
+                        ev = select.kevent(cfd, filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)
+                        kq.control([ev], 0, 0)
+                else:
+                    try:
+                        data = sock.recv(2048)
+                        if not data:
+                            close_client(sock, fd_to_socket, clients)
+                            continue
+
+                        client = clients[sock]
+                        messages = client.input_buffer.add(data)
+                        for message in messages:
+                            if message.upper() == "QUIT":
+                                handle_QUIT(sock, fd_to_socket, clients)
+                                close_client(sock, fd_to_socket, clients)
+                                break
+                            current_order_id = process_message(sock, message, clients, current_order_id, order_book, order_by_id)
+                    except BlockingIOError:
+                        pass
+                    except ConnectionResetError:
+                        close_client(sock, fd_to_socket, clients)
+                    except OSError:
+                        close_client(sock, fd_to_socket, clients)
 
             if event.filter == select.KQ_FILTER_READ:                                            # checks if the event is a read event ie data has to be read or a new connection to accept
                 if sock is server_socket:
