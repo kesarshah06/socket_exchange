@@ -5,18 +5,20 @@ import sys
 from common import LineBuffer, encode_line, send_line, valid_instrument, valid_int, valid_order_id
 import resource
 
+#...................fd limit increase to handle large number of connections...................
 def maximize_fd_limit():
     try:
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)                         # get the current soft and hard limits for the number of open file descriptors
+        resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))                        # set the soft limit to the hard limit, effectively maximizing the number of file open
         print(f"Maximized file descriptor limit to: {hard}")
     except Exception as e:
         print(f"Warning: Could not automatically increase file descriptor limit: {e}")
 
 maximize_fd_limit()
 
-kq = None
+kq = None                                                                                # global variable to hold the kqueue object, which is used for efficient event notification 
 
+#........................... starts exchange server that handles multiple clients and processes their commands ...........................  
 class ClientState:
     def __init__(self):
         self.role = ""  # "trader" or "market_data"
@@ -27,6 +29,7 @@ class ClientState:
         self.orders = []
         self.write_registered = False
 
+#........................... starts exchange server that handles multiple clients and processes their commands ...........................
 class Order:
     def __init__(self, order_id, socket, side, instrument, quantity, price):
         self.order_id = order_id
@@ -36,8 +39,10 @@ class Order:
         self.quantity = quantity
         self.price = price
 
+#........................... starts exchange server that handles multiple clients and processes their commands ...........................
 def start_server(host, port):
     global kq
+<<<<<<< Updated upstream
     kq = select.kqueue()
     clients = {}
     fd_to_socket = {}
@@ -72,10 +77,25 @@ def start_server(host, port):
         print("Note: Could not bind IPv6:", e)
 
     print("Exchange Server listening on", host, "and ::1 :", port)
+=======
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((host, port))
+    server_socket.listen(10000)                                                                 # sets the maximum number of queued connections to 10000
+    server_socket.setblocking(False)
+    print("Exchange Server listening on", host, ":", port)
+
+    kq = select.kqueue()
+    server_ev = select.kevent(server_socket.fileno(), filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)     # registers the server socket with the kqueue to monitor for read events (incoming connections)
+    kq.control([server_ev], 0, 0)
+
+    clients = {}
+    fd_to_socket = {server_socket.fileno(): server_socket}                                      # maps file descriptors to their corresponding socket object  allowing for easy lookup 
+>>>>>>> Stashed changes
 
     current_order_id = 0
 
-    order_book = {
+    order_book = {                                                                              # initializes the order book for each instrument with separate lists for buy and sell orders
         "JNST": {"BUY": [], "SELL": []},
         "IMCT": {"BUY": [], "SELL": []}
     }
@@ -88,27 +108,35 @@ def start_server(host, port):
         except OSError:
             break
 
-        for event in events:
+        for event in events:                                                                    # processes events by kqueue handles connections and data for each client socket
             fd = event.ident
             if fd not in fd_to_socket:
                 continue
             sock = fd_to_socket[fd]
 
-            if event.flags & select.KQ_EV_EOF:
+            if event.flags & select.KQ_EV_EOF:                                                   # client has disconnected so close the socket and clean up resources
                 close_client(sock, fd_to_socket, clients)
                 continue
 
+<<<<<<< Updated upstream
             if event.filter == select.KQ_FILTER_READ:
                 if sock in server_sockets:
                     while True:
                         try:
                             client_socket, addr = sock.accept()
+=======
+            if event.filter == select.KQ_FILTER_READ:                                            # checks if the event is a read event ie data has to be read or a new connection to accept
+                if sock is server_socket:
+                    while True:
+                        try:
+                            client_socket, addr = server_socket.accept()                         # gets the new client socket and its address, sets it to non-blocking mode and registers it with the kqueue for read events
+>>>>>>> Stashed changes
                             client_socket.setblocking(False)
                             cfd = client_socket.fileno()
                             fd_to_socket[cfd] = client_socket
                             clients[client_socket] = ClientState()
                             
-                            ev = select.kevent(cfd, filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)
+                            ev = select.kevent(cfd, filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)     # registers the new client socket with the kqueue to monitor for read events (incoming data)
                             kq.control([ev], 0, 0)
                         except BlockingIOError:
                             break
@@ -116,7 +144,7 @@ def start_server(host, port):
                             break
                 else:
                     try:
-                        data = sock.recv(2048)
+                        data = sock.recv(2048)                                                    # receives data from the client socket add it to the client's input buffer
                         if not data:
                             close_client(sock, fd_to_socket, clients)
                             continue
@@ -128,7 +156,7 @@ def start_server(host, port):
                                 handle_QUIT(sock, fd_to_socket, clients)
                                 close_client(sock, fd_to_socket, clients)
                                 break
-                            current_order_id = process_message(sock, message, clients, current_order_id, order_book, order_by_id)
+                            current_order_id = process_message(sock, message, clients, current_order_id, order_book, order_by_id)       # processes the received message and update states
                     except BlockingIOError:
                         pass
                     except ConnectionResetError:
@@ -136,13 +164,13 @@ def start_server(host, port):
                     except OSError:
                         close_client(sock, fd_to_socket, clients)
 
-            elif event.filter == select.KQ_FILTER_WRITE:
+            elif event.filter == select.KQ_FILTER_WRITE:                                          # checks if the event is a write event and sends any queued messages to the client socket
                 client = clients.get(sock)
                 if client and client.output_buffer:
                     try:
                         sent = sock.send(client.output_buffer)
                         del client.output_buffer[:sent]
-                        if not client.output_buffer:
+                        if not client.output_buffer:                                              # if the output buffer is empty unregister the write event for this socket to avoid unnecessary notifications
                             client.write_registered = False
                             ev = select.kevent(fd, filter=select.KQ_FILTER_WRITE, flags=select.KQ_EV_DELETE)
                             kq.control([ev], 0, 0)
@@ -153,35 +181,38 @@ def start_server(host, port):
                     except OSError:
                         close_client(sock, fd_to_socket, clients)
 
+#...........................closing the client ...........................
 def close_client(sock, fd_to_socket, clients):
     try:
         fd = sock.fileno()
         if fd in fd_to_socket:
-            del fd_to_socket[fd]
+            del fd_to_socket[fd]                                                                 # removes the socket from the fd_to_socket mapping to clean up resources
     except OSError:
         pass
         
     if sock in clients:
-        del clients[sock]
+        del clients[sock]                                                                        # removes the client state from the clients dictionary to clean up resources
     try:
         sock.close()
     except OSError:
         pass
 
+#...........................queing the message to be sent to the client socket and registering the write event with kqueue if not already registered ...........................
 def queue_message(sock, message, clients):
     global kq
     client = clients.get(sock)
     if not client:
         return
-    client.output_buffer += encode_line(message)
+    client.output_buffer += encode_line(message)                                                 # adds the encoded message to the client's output buffer
     if not client.write_registered and kq is not None:
         try:
-            ev = select.kevent(sock.fileno(), filter=select.KQ_FILTER_WRITE, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)
+            ev = select.kevent(sock.fileno(), filter=select.KQ_FILTER_WRITE, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)         # registers the client socket with the kqueue to monitor for write events 
             kq.control([ev], 0, 0)
             client.write_registered = True
         except OSError:
             pass
 
+#...........................processes the received message and update states ...........................
 def process_message(sock, message, clients, current_order_id, order_book, order_by_id):
     parts = message.split()
     if not parts:
@@ -204,6 +235,7 @@ def process_message(sock, message, clients, current_order_id, order_book, order_
         queue_message(sock, "ERROR Unknown command", clients)
     return current_order_id
 
+#..........................handles the LOGIN command from the client and updates the client's role and username ..........................
 def handle_login(sock, parts, clients):
     client = clients[sock]
     if(len(parts) != 2):
@@ -215,15 +247,16 @@ def handle_login(sock, parts, clients):
         return
 
     for other in clients.values():
-        if other.role == "trader" and other.username == parts[1]:
+        if other.role == "trader" and other.username == parts[1]:                        #checks if the username is already taken by another trader 
             queue_message(sock, "ERROR Username already taken", clients)
             return
 
-    client.role = "trader"
+    client.role = "trader"                                                               #updates role to trader and sets the username for the client
     client.username = parts[1]
 
-    queue_message(sock, "OK", clients)
+    queue_message(sock, "OK", clients)                                                   #sends a success message 
 
+#..........................handles the SUBSCRIBE command from the client and updates the client's subscriptions .........................
 def handle_subscribe(sock, parts, clients):
     client = clients[sock]
     if(len(parts) != 2):
@@ -231,7 +264,7 @@ def handle_subscribe(sock, parts, clients):
         return
 
     if client.role == "trader":
-        queue_message(sock, "ERROR Traders cannot subscribe to market data", clients)
+        queue_message(sock, "ERROR Traders cannot subscribe to market data", clients)   #traders cant subscribe to market data
         return
 
     if not valid_instrument(parts[1]):
@@ -239,11 +272,12 @@ def handle_subscribe(sock, parts, clients):
         return
 
     if client.role == "":
-        client.role = "market_data"
+        client.role = "market_data"                                                     #updates role to market_data if the client has not logged in yet
 
-    client.subs.add(parts[1])
-    queue_message(sock, "OK", clients)
+    client.subs.add(parts[1])                              
+    queue_message(sock, "OK", clients)                                                  #adds instrument to subscriptions and sends success message
 
+#..........................handles the UNSUBSCRIBE command from the client and updates the client's subscriptions .........................
 def handle_unsubscribe(sock, parts, clients):
     client = clients[sock]
     if(len(parts) != 2):
@@ -263,8 +297,9 @@ def handle_unsubscribe(sock, parts, clients):
         return
 
     client.subs.remove(parts[1])
-    queue_message(sock, "OK", clients)
+    queue_message(sock, "OK", clients)                                                 # removes instrument from subscriptions and sends success message
 
+#..........................handles the BUY command from the client and updates the data .................................
 def handle_buy(sock, parts, clients, current_order_id, order_book, order_by_id):
     client = clients[sock]
     if client.role != "trader":
@@ -275,7 +310,7 @@ def handle_buy(sock, parts, clients, current_order_id, order_book, order_by_id):
         queue_message(sock, "ERROR Invalid BUY command", clients)
         return current_order_id
 
-    instrument = parts[1]
+    instrument = parts[1]                                                              # gets the instrument, quantity, and price from the command parts
     quantity = parts[2]
     price = parts[3]
 
@@ -294,18 +329,19 @@ def handle_buy(sock, parts, clients, current_order_id, order_book, order_by_id):
     quantity = int(quantity)
     price = int(price)
 
-    order = Order(current_order_id, sock, "BUY", instrument, quantity, price)
+    order = Order(current_order_id, sock, "BUY", instrument, quantity, price)        # creates a new Order object with the current specifications
 
-    order_by_id[current_order_id] = order
+    order_by_id[current_order_id] = order                                            # adds the order to the order_by_id dictionary with the current order ID as the key
 
-    queue_message(sock, f"ORDER_ACCEPTED {current_order_id}", clients)
+    queue_message(sock, f"ORDER_ACCEPTED {current_order_id}", clients)               # sends a success message to the client 
 
     current_order_id += 1
 
-    match_orders(order, order_book, clients, order_by_id)
+    match_orders(order, order_book, clients, order_by_id)                             # calls the match_orders function to check if there are any matching orders in the order book
 
     return current_order_id
 
+#..........................handles the SELL command from the client and updates the data .................................
 def handle_sell(sock, parts, clients, current_order_id, order_book, order_by_id):
     client = clients[sock]
     if client.role != "trader":
@@ -316,7 +352,7 @@ def handle_sell(sock, parts, clients, current_order_id, order_book, order_by_id)
         queue_message(sock, "ERROR Invalid SELL command", clients)
         return current_order_id
 
-    instrument = parts[1]
+    instrument = parts[1]                                                              # gets the instrument, quantity, and price from the command parts
     quantity = parts[2]
     price = parts[3]
 
@@ -335,29 +371,30 @@ def handle_sell(sock, parts, clients, current_order_id, order_book, order_by_id)
     quantity = int(quantity)
     price = int(price)
 
-    order = Order(current_order_id, sock, "SELL", instrument, quantity, price)
+    order = Order(current_order_id, sock, "SELL", instrument, quantity, price)          # creates a new Order object with the current specifications
 
-    order_by_id[current_order_id] = order
+    order_by_id[current_order_id] = order                                               # adds the order to the order_by_id dictionary with the current order ID as the key
 
     queue_message(sock, f"ORDER_ACCEPTED {current_order_id}", clients)
 
     current_order_id += 1
 
-    match_orders(order, order_book, clients, order_by_id)
+    match_orders(order, order_book, clients, order_by_id)                                # calls the match_orders function to check if there are any matching orders in the order book
 
     return current_order_id
 
+#..........................matches the incoming order with existing orders in the order book and executes trades if there are matches .................................
 def match_orders(order, order_book, clients, order_by_id):
     instrument = order.instrument
     side = order.side
-    oppo = "SELL" if side == "BUY" else "BUY"
+    oppo = "SELL" if side == "BUY" else "BUY"                                            # gets opp side of order to find matching orders in the order book
     order_list = order_book[instrument][oppo]
 
-    while order_list and order.quantity > 0:
+    while order_list and order.quantity > 0:                                             # checks if there are any matching orders in the order book and if the incoming order has remaining quantity to be filled
         match_order = order_list[0]
         flag = 0
         for other_orders in order_list:
-            if other_orders.price == match_order.price:
+            if other_orders.price == match_order.price:                                  # finds the first matching order with the same price in the order book
                 match_order = other_orders
                 flag = 1
                 break
@@ -365,9 +402,9 @@ def match_orders(order, order_book, clients, order_by_id):
         if flag == 0:
             break
 
-        trade_quantity = min(order.quantity, match_order.quantity)
-        order.quantity -= trade_quantity
-        match_order.quantity -= trade_quantity
+        trade_quantity = min(order.quantity, match_order.quantity)                       # calculates the trade quantity as the minimum of the incoming order's quantity and the matching order's quantity
+        order.quantity -= trade_quantity                                                 # updates the incoming order's quantity by subtracting the trade quantity
+        match_order.quantity -= trade_quantity                                           # updates the matching order's quantity by subtracting the trade quantity
 
         buyer_socket = order.socket if side == "BUY" else match_order.socket
         seller_socket = match_order.socket if side == "BUY" else order.socket
@@ -377,24 +414,26 @@ def match_orders(order, order_book, clients, order_by_id):
         if seller_socket in clients:
             queue_message(seller_socket, f"SOLD {instrument} {trade_quantity} {match_order.price}", clients)
 
-        broadcast_trade(instrument, trade_quantity, match_order.price, clients)
+        broadcast_trade(instrument, trade_quantity, match_order.price, clients)           # broadcasts the trade to all market data clients subscribed to the instrument
 
-        if match_order.quantity == 0:
+        if match_order.quantity == 0:                                                     # removes the matching order from the order book and the order_by_id dictionary if its quantity is zero
             order_list.remove(match_order)
             del order_by_id[match_order.order_id]
 
-    if order.quantity > 0:
+    if order.quantity > 0:                                                                # adds the incoming order to the order book if it has remaining quantity to be filled
         order_book[instrument][side].append(order)
 
     else:
         del order_by_id[order.order_id]
 
+#..........................broadcasts the trade to all market data clients subscribed to the instrument ..........................
 def broadcast_trade(instrument, quantity, price, clients):
     message = f"TRADE {instrument} {quantity} {price}"
-    for sock, client in clients.items():
+    for sock, client in clients.items():                                                  # sends the trade message to those who are subscribed to the instrument
         if client.role == "market_data" and instrument in client.subs:
             queue_message(sock, message, clients)
 
+#..........................handles the CANCEL command from the client and updates the data ..........................
 def handle_cancel(sock, parts, clients, order_book, order_by_id):
     client = clients[sock]
     if client.role != "trader":
@@ -423,19 +462,21 @@ def handle_cancel(sock, parts, clients, order_book, order_by_id):
         queue_message(sock, "ERROR Cannot cancel another trader's order", clients)
         return
 
-    order_book[order.instrument][order.side].remove(order)
+    order_book[order.instrument][order.side].remove(order)                               # remove the order from the order book and the order_by_id dictionary
     del order_by_id[order_id]
 
-    queue_message(sock, f"ORDER_CANCELLED {order_id}", clients)
+    queue_message(sock, f"ORDER_CANCELLED {order_id}", clients)                          # send a success message to the client
 
+#..........................handles the QUIT command from the client and closes the connection ..........................
 def handle_QUIT(sock, fd_to_socket, clients):
     try:
         fd = sock.fileno()
         if fd in fd_to_socket:
-            del fd_to_socket[fd]
+            del fd_to_socket[fd]                                                          # removes the socket from the fd_to_socket mapping to clean up resources
     except OSError:
         pass
 
+#..........................main function that starts the exchange server ..........................
 if __name__ == "__main__":
     if(len(sys.argv) != 3):
         print("Usage: python server_bonus.py <host> <port>")
