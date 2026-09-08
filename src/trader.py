@@ -4,17 +4,18 @@ import sys
 
 from common import LineBuffer, send_line, valid_instrument, valid_int, valid_order_id
 
+#........................ starts trader client that connects to the exchange server and allows user to send commands .........................
 def start_trader(host, port, username):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)                    #socket created using module socket and using TCP protocol
 
     try:
         sock.connect((host, port))
         print("Connected to Exchange Server at", host, ":", port)
-        send_line(sock, "LOGIN " + username)
+        send_line(sock, "LOGIN " + username)        
         buffer = LineBuffer()
     
         while True:
-            readable, _, _ = select.select([sock, sys.stdin], [], [])
+            readable, _, _ = select.select([sock, sys.stdin], [], [])         # waits for either the socket or standard input to be ready for reading
             if sock in readable:
                 try:
                     data = sock.recv(2048)
@@ -25,7 +26,7 @@ def start_trader(host, port, username):
                     print("Server disconnected")
                     break
 
-                messages = buffer.add(data)
+                messages = buffer.add(data)                                  # adds the received data to the line buffer and splits it into individual messages
                 for message in messages:
                     print("SERVER", message)
             if sys.stdin in readable:
@@ -53,9 +54,10 @@ def start_trader(host, port, username):
     except OSError as error:
         print("Socket error:", error)
 
-    finally:
+    finally:                                                                      # ensures that the socket is closed when the program exits
         sock.close()
 
+#........................ starts trader client that connects to the exchange server and allows user to send commands .........................
 if __name__ == "__main__":
     if(len(sys.argv) != 4):
         print("Usage: python trader.py <host> <port> <username>")
