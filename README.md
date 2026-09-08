@@ -48,11 +48,54 @@ python3 src/market_data.py
 *(Once connected, type `SUBSCRIBE <instrument>` followed by the Enter key to begin receiving real-time market updates).*
 
 ## 6. Running the Experiments
-To reproduce the experiments documented in the report, execute the experiment script from the root directory with the corresponding experiment number (1-8). For example, to run Experiment 5:
-```bash
-python3 src/experiment.py 5
-```
-*(You will need to use a second terminal window to run diagnostic tools like `netstat`, `sockstat`, or `tcpdump` to observe the network states as detailed in the report).*
+To reproduce the network observations documented in the report, you will need two separate terminal windows open in your FreeBSD environment. 
+
+**Terminal 1** is used to run the automated experiment script.  
+**Terminal 2** is used to run diagnostic tools (`netstat`, `sockstat`, `tcpdump`) to observe the socket and network states.
+
+---
+
+### Experiment 1: Listening and Connected Sockets
+* **Terminal 1:** Run `python3 experiment.py 1` (this starts the server and connects one client, then pauses).
+* **Terminal 2:** Run `sockstat -4 -P tcp | grep 5000`
+* **What to look for:** You will clearly see two entries. One socket is in the `LISTEN` state bound to `*:5000`, and the other is a connected socket showing both the local and foreign addresses representing the established client connection.
+
+### Experiment 2: Observing TCP Connection States
+* **Terminal 1:** Run `python3 experiment.py 2`
+* **Terminal 2:** Run `netstat -an -p tcp | grep 5000` repeatedly (or use a `while true` loop).
+* **What to look for:** You will see the connection transition to the `ESTABLISHED` state. Once Terminal 1 resumes and the client closes, running the `netstat` command again will show that the `ESTABLISHED` connection has disappeared, but the `LISTEN` socket remains active.
+
+### Experiment 3: TCP as a Byte Stream
+* **Terminal 1:** Run `python3 experiment.py 3`
+* **Terminal 2:** (No network tool required for this step).
+* **What to look for:** Look at the output in Terminal 1. The client sends one application message fragmented across 4 separate TCP writes (e.g., 6 bytes, 10 bytes, 7 bytes, 1 byte). The server output proves it correctly buffers and reconstitutes the single message using the newline (`\n`) delimiter.
+
+### Experiment 4: One Client Should Not Stall the Others
+* **Terminal 1:** Run `python3 experiment.py 4`
+* **Terminal 2:** Run `netstat -an -p tcp | grep 5000`
+* **What to look for:** In Terminal 2, you will see two `ESTABLISHED` connections. In Terminal 1, the output proves that even though Client 1 sent a partial message and stalled, Client 2 was able to connect and receive an `OK` response instantly (elapsed time ~0.000s), proving the server uses non-blocking `select()` multiplexing.
+
+### Experiment 5: Multiple Simultaneous Connections
+* **Terminal 1:** Run `python3 experiment.py 5` (connects 5 clients, 3 send data, 2 idle).
+* **Terminal 2:** Run `netstat -an | grep 5000`
+* **What to look for:** Look at the **Recv-Q** (Receive Queue) column. You will explicitly see exactly three active connections holding unread bytes in their `Recv-Q` (e.g., a value of `3`), while the other two idle connections maintain a `Recv-Q` of `0`.
+
+### Experiment 6: Abrupt Client Termination
+* **Terminal 2 (Start this FIRST):** Run `tcpdump -i lo0 port 5000` (requires root/sudo). Leave it running to capture network packets.
+* **Terminal 1:** Run `python3 experiment.py 6`
+* **What to look for:** In Terminal 2's packet capture, look for the TCP flags. During Part A (orderly shutdown), you will see `Flags [F.]` representing a FIN packet. During Part B (abrupt termination where the process is killed), you will explicitly see `Flags [R.]` representing an RST (Reset) packet sent by the OS.
+
+### Experiment 7: Slow Receiver and Backpressure
+* **Terminal 1:** Run `python3 experiment.py 7`
+* **Terminal 2:** Run the following loop to monitor the queues continuously:  
+  `while true; do netstat -an | grep 5000; sleep 0.5; done`
+* **What to look for:** In Terminal 2, watch the queue columns. You will first see the slow client's `Recv-Q` rapidly filling up (e.g., growing from 187 to 306). Once that buffer is full (Zero Window), you will observe the Exchange Server's `Send-Q` for that specific connection begin to back up as it safely buffers the output via non-blocking I/O.
+
+### Experiment 8: Unexpected Client Disconnection
+* **Terminal 1:** Run `python3 experiment.py 8`
+* **Terminal 2:** Run the following loop to monitor the stuck data:  
+  `while true; do netstat -an | grep 5000; sleep 0.5; done`
+* **What to look for:** In Terminal 2, you will see that the connection remains stuck in the `ESTABLISHED` state because no FIN/RST was received. However, you will explicitly observe unacknowledged data getting trapped in the server's **Send-Q** (e.g., values accumulating like 17, 35, 37 bytes) as the server repeatedly attempts to retransmit TCP packets to the dead client.
 
 ## 7. Configuration Required & Submission Independence
 * **No standard external configuration is required.** 
