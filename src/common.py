@@ -2,6 +2,7 @@ INSTRUMENTS = {"JNST", "IMCT"}
 
 INT_MAX = 2_147_483_647
 
+#.........................line buffer class to handle incoming data from socket and split it into lines.........................
 class LineBuffer:
 
     def __init__(self):
@@ -22,7 +23,7 @@ def encode_line(message):
     return (message + "\n").encode("utf-8")
 
 def send_line(sock, message):
-    sock.sendall(encode_line(message))
+    sock.sendall(encode_line(message))                       #sends message after encoding into bytes 
 
 def valid_instrument(instrument):
     return instrument in INSTRUMENTS
@@ -30,7 +31,7 @@ def valid_instrument(instrument):
 def valid_int(value):
     try:
         int_value = int(value)
-        return 1 <= int_value <= INT_MAX             # right now zero quanstity and zero price are allowed
+        return 1 <= int_value <= INT_MAX                     # right now zero quanstity and zero price are allowed
     except ValueError:
         return False
     return False
@@ -38,7 +39,7 @@ def valid_int(value):
 def valid_order_id(order_id):
     try:
         int_value = int(order_id)
-        return 0 <= int_value <= INT_MAX
+        return 0 <= int_value <= INT_MAX                      # right now zero quanstity and zero price are allowed
     except (ValueError, TypeError):
         return False
     return False
