@@ -6,17 +6,21 @@ import time
 def create_connections(host, port, num):
     connections = []
 
-    print(f"Creating {num} connections to {host}:{port}...")
+    print(f"Creating {num} connections to {host}:{port} and ::1:{port}...")
     print()
 
     try:
         for i in range(num):
             s = None
             retries = 0
+            # Alternate between IPv4 and IPv6 to double the ephemeral port limit
+            target_host = host if (i % 2 == 0) else "::1"
+            af_type = socket.AF_INET if (i % 2 == 0) else socket.AF_INET6
+            
             while retries < 5:
                 try:
-                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    s.connect((host, port))
+                    s = socket.socket(af_type, socket.SOCK_STREAM)
+                    s.connect((target_host, port))
                     connections.append(s)
                     break
                 except OSError as e:

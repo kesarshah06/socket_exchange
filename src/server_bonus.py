@@ -38,19 +38,40 @@ class Order:
 
 def start_server(host, port):
     global kq
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((host, port))
-    server_socket.listen(10000)
-    server_socket.setblocking(False)
-    print("Exchange Server listening on", host, ":", port)
-
     kq = select.kqueue()
-    server_ev = select.kevent(server_socket.fileno(), filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)
-    kq.control([server_ev], 0, 0)
-
     clients = {}
-    fd_to_socket = {server_socket.fileno(): server_socket}
+    fd_to_socket = {}
+    
+    server_sockets = []
+    
+    # Listen on IPv4
+    s4 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s4.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s4.bind((host, port))
+    s4.listen(10000)
+    s4.setblocking(False)
+    server_sockets.append(s4)
+    fd_to_socket[s4.fileno()] = s4
+    
+    ev4 = select.kevent(s4.fileno(), filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)
+    kq.control([ev4], 0, 0)
+    
+    # Listen on IPv6
+    try:
+        s6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        s6.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s6.bind(("::1", port))
+        s6.listen(10000)
+        s6.setblocking(False)
+        server_sockets.append(s6)
+        fd_to_socket[s6.fileno()] = s6
+        
+        ev6 = select.kevent(s6.fileno(), filter=select.KQ_FILTER_READ, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE)
+        kq.control([ev6], 0, 0)
+    except Exception as e:
+        print("Note: Could not bind IPv6:", e)
+
+    print("Exchange Server listening on", host, "and ::1 :", port)
 
     current_order_id = 0
 
@@ -78,10 +99,10 @@ def start_server(host, port):
                 continue
 
             if event.filter == select.KQ_FILTER_READ:
-                if sock is server_socket:
+                if sock in server_sockets:
                     while True:
                         try:
-                            client_socket, addr = server_socket.accept()
+                            client_socket, addr = sock.accept()
                             client_socket.setblocking(False)
                             cfd = client_socket.fileno()
                             fd_to_socket[cfd] = client_socket
