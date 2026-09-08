@@ -2,6 +2,7 @@ import socket
 import sys
 import time
 
+
 def create_connections(host, port, num):
     connections = []
 
@@ -19,8 +20,10 @@ def create_connections(host, port, num):
 
             except OSError as e:
                 print(f"Error creating connection #{i + 1}: {e}")
+
                 if s is not None:
                     s.close()
+
                 break
 
             if (i + 1) % 1000 == 0:
@@ -47,6 +50,7 @@ def create_connections(host, port, num):
 
         print("Connections closed.")
 
+
 if __name__ == "__main__":
     if len(sys.argv) != 4:
         print("Usage: python generator.py <host> <port> <num_connections>")
@@ -55,7 +59,9 @@ if __name__ == "__main__":
     host = sys.argv[1]
     port = int(sys.argv[2])
     num = int(sys.argv[3])
-    if(num <= 0):
+
+    if num <= 0:
         print("Number of connections must be a positive integer.")
         sys.exit(1)
+
     create_connections(host, port, num)
