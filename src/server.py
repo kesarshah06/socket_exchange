@@ -318,14 +318,18 @@ def match_orders(order, order_book, clients, order_by_id):
 
     while order_list and order.quantity > 0:                                             # checks if there are any matching orders in the order book and if the incoming order has remaining quantity to be filled
         match_order = order_list[0]
-        flag = 0
-        for other_orders in order_list:
-            if other_orders.price == match_order.price:                                  # finds the first matching order with the same price in the order book
-                match_order = other_orders                                               
-                flag = 1  
-                break
-
-        if flag == 0:
+        
+        # Find the best price in the order book for us
+        for other in order_list:
+            if side == "BUY" and other.price < match_order.price:
+                match_order = other
+            elif side == "SELL" and other.price > match_order.price:
+                match_order = other
+                
+        # Check if the prices actually overlap (Buy Price >= Sell Price)
+        if side == "BUY" and order.price < match_order.price:
+            break
+        if side == "SELL" and order.price > match_order.price:
             break
 
         trade_quantity = min(order.quantity, match_order.quantity)                       # calculates the trade quantity as the minimum of the incoming order's quantity and the matching order's quantity

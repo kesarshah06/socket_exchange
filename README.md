@@ -1,19 +1,3 @@
-Ran command: `find . -name "*.py" | sort`
-
-I have run a scan on your folder and verified the exact location of every single python file.
-
-Here is what the scan found:
-
-- `experiment.py` has now moved inside the `src/` folder (`src/experiment.py`).
-- `server_bonus.py` is directly inside `src/` (outside the bonus folder).
-- `generator.py` is inside `src/bonus/`.
-- `sanity_check.py` is no longer in the project folder.
-
-I have updated **all** the file paths, the project file list, and the experiment commands (`python3 src/experiment.py`) so that the `README.md` perfectly matches your current directory structure!
-
-Here is your final, 100% accurate `README.md`:
-
-````markdown
 # Assignment 2: The Socket Exchange
 
 ## Overview
@@ -61,7 +45,6 @@ To start the Exchange Server, open a terminal in the root directory of the proje
 ```bash
 ./server/run-server
 ```
-````
 
 The server will immediately start running and listen for incoming TCP connections on `127.0.0.1` (localhost) at port `5000`.
 
@@ -135,16 +118,14 @@ To reproduce the network observations documented in the report, you will need tw
 - **Terminal 1:** Run `python3 src/experiment.py 7`
 - **Terminal 2:** Run the following loop to monitor the queues continuously:  
   `while true; do netstat -an | grep 5000; sleep 0.5; done`
-
-* **What to observe:** In Terminal 2, watch the queue columns. You will first see the slow client's `Recv-Q` rapidly filling up (e.g., growing from 187 to 306). Once that buffer is full (Zero Window), you will observe the Exchange Server's `Send-Q` for that specific connection begin to back up as it safely buffers the output via non-blocking I/O.
+- **What to observe:** In Terminal 2, watch the queue columns. You will first see the slow client's `Recv-Q` rapidly filling up (e.g., growing from 187 to 306). Once that buffer is full (Zero Window), you will observe the Exchange Server's `Send-Q` for that specific connection begin to back up as it safely buffers the output via non-blocking I/O.
 
 ### Experiment 8: Unexpected Client Disconnection
 
 - **Terminal 1:** Run `python3 src/experiment.py 8`
 - **Terminal 2:** Run the following loop to monitor the stuck data:  
   `while true; do netstat -an | grep 5000; sleep 0.5; done`
-
-* **What to observe:** In Terminal 2, you will see that the connection remains stuck in the `ESTABLISHED` state because no FIN/RST was received. However, you will explicitly observe unacknowledged data getting trapped in the server's **Send-Q** (e.g., values accumulating like 17, 35, 37 bytes) as the server repeatedly attempts to retransmit TCP packets to the dead client.
+- **What to observe:** In Terminal 2, you will see that the connection remains stuck in the `ESTABLISHED` state because no FIN/RST was received. However, you will explicitly observe unacknowledged data getting trapped in the server's **Send-Q** (e.g., values accumulating like 17, 35, 37 bytes) as the server repeatedly attempts to retransmit TCP packets to the dead client.
 
 ## 8. Configuration Required & Submission Independence
 
